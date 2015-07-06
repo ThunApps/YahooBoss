@@ -34,27 +34,36 @@ type BossResponse struct {
   bossresult BossResult
 }
 
+func (bs *BossSearch) signQuery(url string, values *url.Values) {
+  cred := oauth.Credentials{}
+  cred.Token = bs.Token
+  cred.Secret = bs.Secret
 
+  client := oauth.Client{}
+  client.SignatureMethod = oauth.HMACSHA1
+  client.Credentials = cred
 
-func (bs *BossSearch) Search(text string) BossResponse {
-  token := bs.Token
-  secret := bs.Secret
+  client.SignForm( nil, "GET", url, *values )
+}
+
+func (bs *BossSearch) buildQuery(text string) string {
   search_type := bs.SearchType
   boss_url := fmt.Sprintf("%s%s","https://yboss.yahooapis.com/ysearch/", search_type)
-
-  cred := oauth.Credentials{}
-  cred.Token = token
-  cred.Secret = secret
 
   get_params := url.Values{}
   get_params.Set("q", fmt.Sprintf("\"%s\"", text))
   get_params.Add("format", "json")
   get_params.Add("title", "lyrics")
-  client := oauth.Client{}
-  client.SignatureMethod = 0
-  client.Credentials = cred
-  client.SignForm( nil, "GET", boss_url, get_params )
-  res, err := http.Get(fmt.Sprintf("%s?%s", boss_url, get_params.Encode()))
+
+  bs.signQuery(boss_url, &get_params)
+  return fmt.Sprintf("%s?%s", boss_url, get_params.Encode())
+}
+
+/* Todo: Add err */
+func (bs *BossSearch) Search(text string) BossResponse {
+  url := bs.buildQuery(text)
+
+  res, err := http.Get(url)
   if err != nil {
 		log.Fatal(err)
 	}
@@ -65,18 +74,18 @@ func (bs *BossSearch) Search(text string) BossResponse {
   if err != nil {
     panic(err)
   }
+
+  return parseSearchResult(body, bs.SearchType)
+}
+
+/* Todo: Add err */
+func parseSearchResult(body []byte, search_type string) BossResponse {
   var dat map[string]interface{}
 
   if err := json.Unmarshal(body, &dat); err != nil {
     panic(err)
   }
-
-  return parseSearchResult(dat, bs.SearchType)
-}
-
-/* Todo: Add err */
-func parseSearchResult(json map[string]interface{}, search_type string) BossResponse {
-  boss_response := json["bossresponse"].(map[string]interface{})
+  boss_response := dat["bossresponse"].(map[string]interface{})
   search_type_results := boss_response[search_type].(map[string]interface{})
   results := search_type_results["results"].([]interface{})
   var br BossResponse
@@ -97,6 +106,5 @@ func parseSearchResult(json map[string]interface{}, search_type string) BossResp
 
   br.bossresult = bresult
   br.responsecode = 200
-  fmt.Println(br)
   return br
 }
