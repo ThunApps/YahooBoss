@@ -13,4 +13,18 @@ YahooBoss is available under the [Apache License, Version 2.0](http://www.apache
 
 ## Documentation
 
-Coming Soon!
+```go
+package main
+
+import (
+  "github.com/ThunApps/yahooboss"
+)
+
+func main() {
+  bs := yahooboss.BossSearch{<token>,
+                        <secret>,
+                        "web"}
+
+  bs.Search("Hello+World!")
+}
+```

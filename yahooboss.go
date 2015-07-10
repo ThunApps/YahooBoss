@@ -2,6 +2,7 @@ package yahooboss
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,25 +12,21 @@ import (
 	"github.com/garyburd/go-oauth/oauth"
 )
 
-type BossError struct {
-	Type string
-}
-
-func (e *BossError) Error() string {
-	return fmt.Sprintf("Error: %s", e.Type)
-}
-
+// BossSearch stores a Yahoo Boss Search, and implements the search functions
 type BossSearch struct {
 	Token      string
 	Secret     string
 	SearchType string
 }
 
+// BossResultRow contains a single row result
 type BossResultRow struct {
 	url   string
 	title string
 }
 
+// BossResult contains basic data about the search
+// and a list of all results rows
 type BossResult struct {
 	start        int
 	end          int
@@ -38,6 +35,7 @@ type BossResult struct {
 	results      []BossResultRow
 }
 
+// BossResponse contains the most raw data about the search
 type BossResponse struct {
 	responsecode int
 	bossresult   BossResult
@@ -68,8 +66,8 @@ func (bs *BossSearch) buildQuery(text string) string {
 	return fmt.Sprintf("%s?%s", bossURL, getParams.Encode())
 }
 
-/* Todo: Add err */
-func (bs *BossSearch) Search(text string) BossResponse {
+// Search does a search using Yahoo Boss for "text"
+func (bs *BossSearch) Search(text string) (BossResponse, error) {
 	url := bs.buildQuery(text)
 
 	res, err := http.Get(url)
@@ -88,11 +86,11 @@ func (bs *BossSearch) Search(text string) BossResponse {
 }
 
 /* Todo: Add err */
-func parseSearchResult(body []byte, searchType string) BossResponse {
+func parseSearchResult(body []byte, searchType string) (BossResponse, error) {
 	var dat map[string]interface{}
 
 	if err := json.Unmarshal(body, &dat); err != nil {
-		panic(err)
+		return BossResponse{}, errors.New("No JSON provided")
 	}
 	bossResponse := dat["bossresponse"].(map[string]interface{})
 	searchTypeResults := bossResponse[searchType].(map[string]interface{})
@@ -115,5 +113,5 @@ func parseSearchResult(body []byte, searchType string) BossResponse {
 
 	br.bossresult = bresult
 	br.responsecode = 200
-	return br
+	return br, nil
 }
